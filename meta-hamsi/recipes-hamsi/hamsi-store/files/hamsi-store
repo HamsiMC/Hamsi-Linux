@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -u
+
+remote_url="https://dl.flathub.org/repo/flathub.flatpakrepo"
+
+if command -v flatpak >/dev/null 2>&1; then
+    flatpak remote-add --user --if-not-exists flathub "$remote_url" >/dev/null 2>&1 || true
+fi
+
+if command -v plasma-discover >/dev/null 2>&1; then
+    exec plasma-discover "$@"
+fi
+
+exec kdialog --error "Hamsi Mağaza başlatılamadı. Plasma Discover paketi bulunamadı."

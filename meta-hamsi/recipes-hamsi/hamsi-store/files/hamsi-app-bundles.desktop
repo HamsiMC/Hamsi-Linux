@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Hamsi Uygulama Paketleri
+Name[en]=Hamsi App Bundles
+Comment=Ofis, tasarım, yayın, geliştirme ve oyun paketlerini kur
+Exec=hamsi-app-bundles
+Icon=system-software-install
+Categories=System;PackageManager;
+Terminal=false
+StartupNotify=true

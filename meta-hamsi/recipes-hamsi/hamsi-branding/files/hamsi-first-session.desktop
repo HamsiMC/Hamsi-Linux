@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Hamsi First Session
+Exec=/usr/bin/hamsi-apply-theme
+OnlyShowIn=KDE;
+NoDisplay=true
+X-KDE-autostart-after=panel
+X-KDE-StartupNotify=false

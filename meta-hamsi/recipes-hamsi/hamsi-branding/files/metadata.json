@@ -1,0 +1,14 @@
+{
+  "KPackageStructure": "Plasma/LookAndFeel",
+  "KPlugin": {
+    "Authors": [
+      { "Name": "Hamsi Linux contributors" }
+    ],
+    "Category": "Global Themes",
+    "Description": "Hamsi Linux angular maritime desktop",
+    "Id": "org.hamsi.desktop",
+    "License": "MIT",
+    "Name": "Hamsi",
+    "Version": "1.0"
+  }
+}

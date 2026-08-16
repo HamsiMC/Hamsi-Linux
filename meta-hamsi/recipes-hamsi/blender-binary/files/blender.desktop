@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Blender
+GenericName=3D Creation Suite
+GenericName[tr]=3B İçerik Üretim Paketi
+Comment=3B modelleme, animasyon, görüntü işleme ve video düzenleme
+Exec=blender %f
+Icon=blender
+Terminal=false
+Categories=Graphics;3DGraphics;
+MimeType=application/x-blender;
+StartupWMClass=Blender

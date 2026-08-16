@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Hamsi Mağaza
+Name[en]=Hamsi Store
+Comment=Uygulamaları bul, kur ve güncelle
+Exec=hamsi-store
+Icon=plasmadiscover
+Categories=Qt;KDE;System;PackageManager;
+Terminal=false
+StartupNotify=true

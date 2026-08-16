@@ -1,0 +1,33 @@
+name: Kaynak doğrulama
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Kaynakları al
+        uses: actions/checkout@v4
+
+      - name: Python bağımlılığını kur
+        run: python3 -m pip install --disable-pip-version-check PyYAML==6.0.3
+
+      - name: Hamsi kaynak ağacını doğrula
+        run: python3 scripts/validate-repo.py
+
+      - name: Python dosyalarını derle
+        run: python3 -m compileall -q scripts
+
+      - name: Betik izinlerini doğrula
+        run: |
+          test -x scripts/build.sh
+          test -x scripts/check-runner.sh
+          test -x scripts/verify-iso.sh
+          test -x scripts/chunk-iso.sh

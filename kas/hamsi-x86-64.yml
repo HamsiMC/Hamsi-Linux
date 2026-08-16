@@ -1,0 +1,93 @@
+header:
+  version: 19
+
+build_system: openembedded
+machine: genericx86-64
+distro: hamsi
+target: hamsi-desktop-image
+
+repos:
+  bitbake:
+    url: https://git.openembedded.org/bitbake
+    branch: "2.16"
+    commit: 713fbbdb9ecc195ceb2216a2345e0d79dbee2135
+    layers: {}
+
+  openembedded-core:
+    url: https://git.openembedded.org/openembedded-core
+    branch: wrynose
+    commit: f09a0f28aeb54ddd90415dd458338e1565bb5a49
+    layers:
+      meta:
+
+  meta-yocto:
+    url: https://git.yoctoproject.org/meta-yocto
+    branch: wrynose
+    commit: 1b132647002eea43a2c7a7f857f63f42dacbc26c
+    layers:
+      meta-yocto-bsp:
+
+  meta-openembedded:
+    url: https://github.com/openembedded/meta-openembedded.git
+    branch: wrynose
+    commit: 6bf0d8ad57b33950bab4c7f6c037e1ccb6f6e2eb
+    layers:
+      meta-oe:
+      meta-filesystems:
+      meta-gnome:
+      meta-multimedia:
+      meta-networking:
+      meta-python:
+
+  meta-qt6:
+    url: https://github.com/YoeDistro/meta-qt6.git
+    branch: "6.11"
+    commit: df445fceecc64d28bc3df18be0c3466d2168822f
+    layers:
+      .:
+
+  meta-kf6:
+    url: https://github.com/KDE/yocto-meta-kf6.git
+    branch: master
+    commit: e181491885b89da188959f321588f1d0ac7bd3fe
+    layers:
+      .:
+
+  meta-kde:
+    url: https://github.com/KDE/yocto-meta-kde.git
+    branch: master
+    commit: 1a3ab9ce6d52aad2c263c8cdaf372e0374efe8f1
+    layers:
+      .:
+
+  hamsi:
+    layers:
+      meta-hamsi:
+
+bblayers_conf_header:
+  hamsi: |
+    POKY_BBLAYERS_CONF_VERSION = "2"
+    BBPATH = "${TOPDIR}"
+    BBFILES ?= ""
+
+local_conf_header:
+  hamsi: |
+    CONF_VERSION = "2"
+    PACKAGE_CLASSES = "package_rpm"
+    DL_DIR = "${TOPDIR}/../downloads"
+    SSTATE_DIR = "${TOPDIR}/../sstate-cache"
+    TMPDIR = "${TOPDIR}/tmp"
+    HAMSI_INCLUDE_YANDEX ?= "1"
+    BB_DISKMON_DIRS = "STOPTASKS,${TMPDIR},20G,2G STOPTASKS,${DL_DIR},10G,1G STOPTASKS,${SSTATE_DIR},10G,1G ABORT,${TMPDIR},5G,500M"
+    BB_NUMBER_THREADS ?= "16"
+    PARALLEL_MAKE ?= "-j 16"
+
+env:
+  HAMSI_INCLUDE_YANDEX: "1"
+  BB_NUMBER_THREADS: null
+  PARALLEL_MAKE: null
+
+artifacts:
+  iso: tmp/deploy/images/genericx86-64/hamsi-desktop-image-genericx86-64*.iso
+  usb-image: tmp/deploy/images/genericx86-64/hamsi-desktop-image-genericx86-64*.wic.gz
+  usb-map: tmp/deploy/images/genericx86-64/hamsi-desktop-image-genericx86-64*.wic.bmap

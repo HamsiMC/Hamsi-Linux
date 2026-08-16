@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>Hamsi Linux</vendor>
+  <vendor_url>https://github.com/HamsiMC/Hamsi-Linux</vendor_url>
+  <action id="org.hamsi.installer.install">
+    <description>Install Hamsi Linux</description>
+    <description xml:lang="tr">Hamsi Linux'u kur</description>
+    <message>Authentication is required to partition a disk and install Hamsi Linux</message>
+    <message xml:lang="tr">Diski bölümlemek ve Hamsi Linux'u kurmak için kimlik doğrulaması gerekiyor</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/hamsi-installer</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+</policyconfig>

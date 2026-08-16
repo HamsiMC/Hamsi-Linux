@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: MIT
+# A directly writable GPT/UEFI development image. The graphical installer
+# creates the same two-partition shape on a selected target disk.
+part /boot --source bootimg-efi --sourceparams="loader=systemd-boot" --ondisk sda --fstype=vfat --label HAMSI_EFI --active --align 1024 --size 512
+part / --source rootfs --ondisk sda --fstype=ext4 --label HAMSI_ROOT --align 1024 --extra-space 4096
+bootloader --ptable gpt --timeout=5 --append="rootwait rw quiet splash"

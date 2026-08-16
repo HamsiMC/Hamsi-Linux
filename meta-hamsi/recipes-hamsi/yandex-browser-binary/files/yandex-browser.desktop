@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Yandex Browser
+Name[tr]=Yandex Tarayıcı
+Comment=İnternette hızlı ve güvenli gezinin
+Exec=/usr/bin/yandex-browser %U
+Icon=yandex-browser
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=YandexBrowser

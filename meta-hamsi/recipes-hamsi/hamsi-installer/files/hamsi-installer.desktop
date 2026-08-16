@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Hamsi'yi Kur
+Name[en]=Install Hamsi
+Comment=Hamsi Linux'u bu bilgisayara kur
+Exec=pkexec /usr/libexec/hamsi-installer
+Icon=drive-harddisk
+Categories=System;
+Terminal=false
+StartupNotify=true

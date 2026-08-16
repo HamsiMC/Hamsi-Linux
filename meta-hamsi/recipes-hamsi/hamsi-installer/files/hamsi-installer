@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+set -Eeuo pipefail
+
+mount_root="/mnt/hamsi-target"
+selected_disk=""
+
+ui_error() {
+    zenity --error --title="Hamsi Kurucu" --width=520 --text="$1" 2>/dev/null || true
+}
+
+ui_info() {
+    zenity --info --title="Hamsi Kurucu" --width=520 --text="$1" 2>/dev/null || true
+}
+
+fail() {
+    ui_error "$1"
+    exit 1
+}
+
+cleanup() {
+    set +e
+    sync
+    if mountpoint -q "$mount_root"; then
+        umount -R "$mount_root"
+    fi
+}
+trap cleanup EXIT
+
+partition_path() {
+    local disk="$1" number="$2"
+    if [[ "$disk" =~ [0-9]$ ]]; then
+        printf '%sp%s\n' "$disk" "$number"
+    else
+        printf '%s%s\n' "$disk" "$number"
+    fi
+}
+
+parent_disk() {
+    local device="$1" parent
+    parent="$(lsblk -ndo PKNAME "$device" 2>/dev/null | head -n1 || true)"
+    if [[ -n "$parent" ]]; then
+        printf '/dev/%s\n' "$parent"
+    elif [[ "$device" == /dev/* ]]; then
+        printf '%s\n' "$device"
+    fi
+}
+
+[[ ${EUID:-$(id -u)} -eq 0 ]] || fail "Kurucu yönetici yetkisiyle çalıştırılmalıdır."
+[[ -d /sys/firmware/efi ]] || fail "Bu ilk sürüm yalnızca UEFI modunda kurulabilir. Bilgisayarı USB'den UEFI olarak yeniden başlatın."
+[[ -e /etc/hamsi-live ]] || fail "Kurucu yalnızca Hamsi canlı ortamından çalıştırılabilir."
+
+for command_name in zenity lsblk findmnt wipefs sgdisk partprobe udevadm \
+                    mkfs.vfat mkfs.ext4 mount umount mountpoint rsync blkid \
+                    bootctl chroot systemctl; do
+    command -v "$command_name" >/dev/null 2>&1 || fail "Gerekli araç bulunamadı: $command_name"
+done
+
+ui_info "Hamsi Linux kurulumuna hoş geldiniz.\n\nKurulum UEFI/GPT kullanır. Bir sonraki adımda seçeceğiniz diskin bütün bölümleri ve verileri kalıcı olarak silinecektir."
+
+root_source="$(findmnt -n -o SOURCE / 2>/dev/null || true)"
+protected_disk=""
+if [[ "$root_source" == /dev/* ]]; then
+    protected_disk="$(parent_disk "$root_source")"
+fi
+
+declare -a disk_rows=()
+while IFS= read -r disk; do
+    [[ -n "$disk" ]] || continue
+    [[ "$disk" != "$protected_disk" ]] || continue
+    size="$(lsblk -dn -o SIZE "$disk" | xargs)"
+    model="$(lsblk -dn -o MODEL "$disk" | xargs)"
+    transport="$(lsblk -dn -o TRAN "$disk" | xargs)"
+    [[ -n "$model" ]] || model="Bilinmeyen model"
+    [[ -n "$transport" ]] || transport="dahili"
+    disk_rows+=("$disk" "$size" "$model" "$transport")
+done < <(lsblk -dpno NAME,TYPE,RO | awk '$2 == "disk" && $3 == "0" {print $1}')
+
+(( ${#disk_rows[@]} > 0 )) || fail "Kuruluma uygun yazılabilir disk bulunamadı."
+
+declare -a zenity_rows=()
+for ((i=0; i<${#disk_rows[@]}; i+=4)); do
+    zenity_rows+=(FALSE "${disk_rows[i]}" "${disk_rows[i+1]}" "${disk_rows[i+2]}" "${disk_rows[i+3]}")
+done
+
+selected_disk="$(zenity --list --title="Hamsi Kurucu · Hedef Disk" \
+    --text="Hamsi Linux'un kurulacağı diski seçin. Seçilen diskin TÜM içeriği silinir." \
+    --width=820 --height=460 --radiolist \
+    --column="Seç" --column="Aygıt" --column="Boyut" --column="Model" --column="Bağlantı" \
+    "${zenity_rows[@]}" \
+    --print-column=2 2>/dev/null || true)"
+
+[[ "$selected_disk" == /dev/* && -b "$selected_disk" ]] || exit 0
+[[ "$selected_disk" != "$protected_disk" ]] || fail "Çalışan sistemin diski hedef olarak seçilemez."
+
+confirm_text="$(zenity --entry --title="Hamsi Kurucu · Son Onay" --width=620 \
+    --text="DİKKAT: $selected_disk üzerindeki bütün bölümler ve veriler silinecek.\n\nDevam etmek için aşağıya tam olarak SİL yazın:" 2>/dev/null || true)"
+[[ "$confirm_text" == "SİL" ]] || exit 0
+
+username="$(zenity --entry --title="Hamsi Kurucu · Kullanıcı" --width=520 \
+    --text="Kullanıcı adınızı girin (küçük harf, rakam, _ veya -):" \
+    --entry-text="hamsi" 2>/dev/null || true)"
+[[ "$username" =~ ^[a-z_][a-z0-9_-]{0,30}$ ]] || fail "Geçersiz kullanıcı adı."
+
+hostname="$(zenity --entry --title="Hamsi Kurucu · Bilgisayar Adı" --width=520 \
+    --text="Bilgisayar adını girin:" --entry-text="hamsi-pc" 2>/dev/null || true)"
+[[ "$hostname" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$ ]] || fail "Geçersiz bilgisayar adı."
+
+password="$(zenity --password --title="Hamsi Kurucu · Parola" --width=500 \
+    --text="Yeni kullanıcı parolasını girin:" 2>/dev/null || true)"
+[[ ${#password} -ge 8 ]] || fail "Parola en az 8 karakter olmalıdır."
+password_again="$(zenity --password --title="Hamsi Kurucu · Parolayı Doğrula" --width=500 \
+    --text="Parolayı tekrar girin:" 2>/dev/null || true)"
+[[ "$password" == "$password_again" ]] || fail "Parolalar eşleşmiyor."
+
+zenity --question --title="Hamsi Kurucu · Kurulumu Başlat" --width=620 \
+    --text="Hedef: $selected_disk\nKullanıcı: $username\nBilgisayar: $hostname\n\nDisk şimdi silinecek ve Hamsi Linux kurulacak. Devam edilsin mi?" \
+    --ok-label="Kur" --cancel-label="Vazgeç" 2>/dev/null || exit 0
+
+# Stop swap and unmount every child partition before changing the table.
+while IFS= read -r child; do
+    swapoff "$child" 2>/dev/null || true
+    while IFS= read -r mountpoint_path; do
+        [[ -n "$mountpoint_path" ]] && umount "$mountpoint_path" 2>/dev/null || true
+    done < <(findmnt -rn -S "$child" -o TARGET 2>/dev/null || true)
+done < <(lsblk -lnpo NAME "$selected_disk" | tail -n +2)
+
+wipefs --all --force "$selected_disk"
+sgdisk --zap-all "$selected_disk"
+sgdisk --clear \
+    --new=1:1MiB:+512MiB --typecode=1:ef00 --change-name=1:HAMSI_EFI \
+    --new=2:0:0 --typecode=2:8304 --change-name=2:HAMSI_ROOT \
+    "$selected_disk"
+partprobe "$selected_disk"
+udevadm settle
+
+efi_part="$(partition_path "$selected_disk" 1)"
+root_part="$(partition_path "$selected_disk" 2)"
+[[ -b "$efi_part" && -b "$root_part" ]] || fail "Yeni disk bölümleri oluşturulamadı."
+
+mkfs.vfat -F 32 -n HAMSI_EFI "$efi_part"
+mkfs.ext4 -F -L HAMSI_ROOT "$root_part"
+
+mkdir -p "$mount_root"
+mount "$root_part" "$mount_root"
+mkdir -p "$mount_root/boot"
+mount "$efi_part" "$mount_root/boot"
+
+rsync -aHAXx --numeric-ids \
+    --exclude=/dev/* --exclude=/proc/* --exclude=/sys/* --exclude=/run/* \
+    --exclude=/tmp/* --exclude=/mnt/* --exclude=/media/* --exclude=/lost+found \
+    --exclude=/boot/* \
+    / "$mount_root/"
+
+mkdir -p "$mount_root"/{dev,proc,sys,run,tmp,boot}
+chmod 1777 "$mount_root/tmp"
+
+mount --rbind /dev "$mount_root/dev"
+mount --make-rslave "$mount_root/dev"
+mount -t proc proc "$mount_root/proc"
+mount --rbind /sys "$mount_root/sys"
+mount --make-rslave "$mount_root/sys"
+mount --rbind /run "$mount_root/run"
+mount --make-rslave "$mount_root/run"
+
+if [[ "$username" != "hamsi" ]]; then
+    chroot "$mount_root" usermod -l "$username" hamsi
+    chroot "$mount_root" usermod -d "/home/$username" -m "$username"
+fi
+
+for group_name in wheel audio video input render lp disk dialout; do
+    if chroot "$mount_root" getent group "$group_name" >/dev/null 2>&1; then
+        chroot "$mount_root" usermod -aG "$group_name" "$username"
+    fi
+done
+
+printf '%s:%s\n' "$username" "$password" | chroot "$mount_root" chpasswd
+password=""
+password_again=""
+chroot "$mount_root" passwd -l root >/dev/null
+
+printf '%s\n' "$hostname" > "$mount_root/etc/hostname"
+rm -f "$mount_root/etc/hamsi-live" \
+      "$mount_root/etc/sddm.conf.d/20-hamsi-live.conf" \
+      "$mount_root/etc/sudoers.d/90-hamsi-live"
+cat > "$mount_root/etc/sudoers.d/10-wheel" <<'SUDOEOF'
+%wheel ALL=(ALL:ALL) ALL
+SUDOEOF
+chmod 0440 "$mount_root/etc/sudoers.d/10-wheel"
+touch "$mount_root/etc/hamsi-installed"
+
+root_uuid="$(blkid -s UUID -o value "$root_part")"
+efi_uuid="$(blkid -s UUID -o value "$efi_part")"
+cat > "$mount_root/etc/fstab" <<FSTABEOF
+UUID=$root_uuid / ext4 defaults,noatime 0 1
+UUID=$efi_uuid /boot vfat umask=0077 0 2
+tmpfs /tmp tmpfs mode=1777,nosuid,nodev 0 0
+FSTABEOF
+
+kernel_image="$(find /boot -maxdepth 1 -type f \( -name 'bzImage*' -o -name 'vmlinuz*' \) -print | sort -V | tail -n1)"
+[[ -n "$kernel_image" ]] || fail "Kurulu sistem için Linux çekirdeği /boot altında bulunamadı."
+
+bootctl --root="$mount_root" --esp-path=/boot install
+mkdir -p "$mount_root/boot/EFI/Hamsi" "$mount_root/boot/loader/entries"
+cp -f "$kernel_image" "$mount_root/boot/EFI/Hamsi/hamsi-linux.efi"
+cat > "$mount_root/boot/loader/loader.conf" <<'LOADEREOF'
+default hamsi.conf
+timeout 5
+console-mode max
+editor no
+LOADEREOF
+cat > "$mount_root/boot/loader/entries/hamsi.conf" <<ENTRYEOF
+title Hamsi Linux 0.1.0 Karadeniz
+linux /EFI/Hamsi/hamsi-linux.efi
+options root=UUID=$root_uuid rw quiet splash
+ENTRYEOF
+
+for unit in NetworkManager.service bluetooth.service firewalld.service \
+            cups.service sddm.service fstrim.timer; do
+    systemctl --root="$mount_root" enable "$unit" >/dev/null 2>&1 || true
+done
+
+sync
+cleanup
+trap - EXIT
+
+ui_info "Hamsi Linux kurulumu tamamlandı.\n\nUSB belleği çıkarıp bilgisayarı yeniden başlatabilirsiniz."

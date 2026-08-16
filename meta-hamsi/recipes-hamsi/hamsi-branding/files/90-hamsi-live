@@ -1,0 +1,2 @@
+# Live media only. hamsi-installer removes this file from the installed system.
+hamsi ALL=(ALL:ALL) NOPASSWD: ALL

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -eu
+
+state_dir="${XDG_CONFIG_HOME:-$HOME/.config}/hamsi"
+marker="$state_dir/theme-v1-applied"
+
+if [[ -e "$marker" ]]; then
+    exit 0
+fi
+
+mkdir -p "$state_dir"
+
+if command -v plasma-apply-lookandfeel >/dev/null 2>&1; then
+    plasma-apply-lookandfeel --apply org.hamsi.desktop >/dev/null 2>&1 || true
+elif command -v lookandfeeltool >/dev/null 2>&1; then
+    lookandfeeltool -a org.hamsi.desktop >/dev/null 2>&1 || true
+fi
+
+if command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then
+    plasma-apply-wallpaperimage /usr/share/wallpapers/Hamsi/contents/images/3840x2160.svg >/dev/null 2>&1 || true
+fi
+
+touch "$marker"
+
+if [[ ! -e "$state_dir/welcome-shown" ]]; then
+    touch "$state_dir/welcome-shown"
+    xdg-open file:///usr/share/hamsi/welcome/index.html >/dev/null 2>&1 &
+fi

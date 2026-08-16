@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Hamsi'ye Hoş Geldiniz
+Name[en]=Welcome to Hamsi
+Comment=Sistem özelliklerini ve başlangıç bilgilerini göster
+Exec=xdg-open file:///usr/share/hamsi/welcome/index.html
+Icon=hamsi-logo
+Categories=System;Documentation;
+Terminal=false

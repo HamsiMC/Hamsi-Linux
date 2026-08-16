@@ -1,0 +1,71 @@
+name: Hamsi Linux ISO
+run-name: Hamsi Linux 0.1.0 · Yandex=${{ inputs.include_yandex }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_yandex:
+        description: Resmi Yandex Browser paketini ISO'ya ekle
+        required: true
+        type: boolean
+        default: true
+      publish_release:
+        description: Doğrulanan parçaları GitHub sürümü olarak yayımla
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hamsi-iso-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux, x64, hamsi-builder]
+    timeout-minutes: 720
+    env:
+      HAMSI_INCLUDE_YANDEX: ${{ inputs.include_yandex && '1' || '0' }}
+      KAS_WORK_DIR: ${{ github.workspace }}/.work/kas
+    steps:
+      - name: Kaynakları al
+        uses: actions/checkout@v4
+
+      - name: Kaynak ve derleyici kontrolü
+        run: |
+          python3 scripts/validate-repo.py
+          scripts/check-runner.sh
+
+      - name: ISO'yu üret
+        run: scripts/build.sh
+
+      - name: UEFI duman testi
+        run: scripts/smoke-test-iso.sh dist/hamsi-linux-0.1.0-x86_64.iso
+
+      - name: Parçaları ve doğrulama kayıtlarını sakla
+        uses: actions/upload-artifact@v4
+        with:
+          name: hamsi-linux-0.1.0-x86_64
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            dist/*.sha256
+            dist/*.json
+            dist/*.buildinfo
+            dist/*.bmap
+            dist/*.parts/
+
+      - name: GitHub sürümünü yayımla
+        if: ${{ inputs.publish_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v0.1.0-build-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" \
+            --target "$GITHUB_SHA" \
+            --title "Hamsi Linux 0.1.0 · Build ${GITHUB_RUN_NUMBER}" \
+            --notes "UEFI canlı/kurulum ISO parçaları. BİRLEŞTİR.txt yönergesini ve SHA-256 dosyasını kullanın." \
+            dist/*.sha256 dist/*.json dist/*.parts/*

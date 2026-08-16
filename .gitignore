@@ -1,0 +1,13 @@
+.work/
+build/
+downloads/
+sstate-cache/
+dist/*
+!dist/.gitkeep
+*.iso
+*.wic
+*.wic.gz
+*.bmap
+*.spdx.json
+__pycache__/
+*.pyc
