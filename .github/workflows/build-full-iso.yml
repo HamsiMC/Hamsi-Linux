@@ -1,0 +1,56 @@
+name: Hamsi Full ISO Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build-full-github.sh'
+      - '.github/workflows/build-full-iso.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hamsi-full-iso
+  cancel-in-progress: false
+
+jobs:
+  build-full-and-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - name: Kaynakları al
+        uses: actions/checkout@v4
+
+      - name: Disk alanını hazırla
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Hamsi Full ISO'yu derle
+        run: bash scripts/build-full-github.sh
+
+      - name: ISO bilgisini göster
+        run: |
+          ls -lh dist/Hamsi-0.2-Full-x86_64.iso
+          cat dist/Hamsi-0.2-Full-x86_64.iso.sha256
+
+      - name: Tek parça Hamsi Full sürümünü yayımla
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="hamsi-0.2-full-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" \
+            --target "$GITHUB_SHA" \
+            --title "Hamsi 0.2 Full x86-64 · Build ${GITHUB_RUN_NUMBER}" \
+            --notes "Hamsi Full: tek parça canlı/kurulum ISO. Geniş masaüstü, ofis, yaratıcı uygulamalar, medya, Bluetooth, yazıcı/tarayıcı, firmware, dosya sistemi ve bakım araçları içerir. SHA-256 ve önyükleme raporu aynı sürümdedir." \
+            dist/Hamsi-0.2-Full-x86_64.iso \
+            dist/Hamsi-0.2-Full-x86_64.iso.sha256 \
+            dist/Hamsi-0.2-Full-x86_64.iso.boot-report.txt
